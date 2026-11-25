@@ -1,0 +1,70 @@
+/*
+ * Malvern Hills parallax backdrop: drop-in component styles.
+ *
+ * Usage: <div class="mh-hills" data-src="malvern-hills/layers/"></div>
+ * plus malvern-hills.js. Everything is scoped to .mh-* classes and --mh-*
+ * custom properties, so nothing here affects the rest of the page.
+ *
+ * Customise by setting any of these on .mh-hills (or a parent):
+ *   --mh-sky-top     sky colour at the top of the band (match the section above)
+ *   --mh-sky-low     sky colour near the horizon
+ *   --mh-sky-h       height of the sky strip above the hills
+ *   --mh-ground-h    height of the ground strip below the hills
+ *   --mh-min-width   the hills never draw narrower than this (sides crop instead)
+ *   --mh-focus       0 to 1: which part stays in view when the sides crop
+ *                    (0 = south end, 1 = north end; 0.68 keeps Worcestershire Beacon)
+ * The ground colour below the band is the nearest layer's colour (#23302c by
+ * default); give the section after the band that background for a seamless join.
+ */
+
+.mh-hills {
+  --mh-sky-top: #8fa9bf;
+  --mh-sky-low: #e9e3d6;
+  --mh-sky-h: max(20vh, 140px);
+  --mh-ground-h: 14vh;
+  --mh-min-width: 1100px;
+  --mh-focus: 0.68;
+  /* Set by the script: --mh-width (band width in px) and --mh-ratio (SVG height/width). */
+  --mh-layer-w: max(var(--mh-width, 100vw), var(--mh-min-width), 170vh);
+
+  position: relative;
+  display: block;
+  height: calc(var(--mh-sky-h) + var(--mh-layer-w) * var(--mh-ratio, 0.135) + var(--mh-ground-h));
+  background: linear-gradient(to bottom, var(--mh-sky-top) 0%, var(--mh-sky-low) 80%);
+  /* Clip the sides and bottom but not the top: far layers rise above the band
+     while it is below the centre of the screen. Use .mh-hills--clip-top if the
+     section above is not the same sky colour. */
+  overflow-x: clip;
+  overflow-y: visible;
+  clip-path: inset(-100vh 0 0 0);
+}
+@supports not (overflow-x: clip) {
+  .mh-hills { overflow: hidden; }
+}
+.mh-hills--clip-top { clip-path: inset(0); }
+
+.mh-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Extend well below the band so a raised layer never shows a gap under it. */
+  bottom: -40vh;
+  will-change: transform;
+}
+.mh-layer img {
+  display: block;
+  width: var(--mh-layer-w);
+  max-width: none;
+  height: auto;
+  margin-left: calc((100% - var(--mh-layer-w)) * var(--mh-focus));
+}
+/* Solid ground in the layer's own colour, below its silhouette. Overlap the
+   SVG by a pixel so there is no hairline seam. */
+.mh-fill {
+  height: calc(var(--mh-ground-h) + 40vh);
+  margin-top: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mh-layer { transform: none !important; will-change: auto; }
+}

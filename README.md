@@ -1,0 +1,175 @@
+# Malvern Hills layered backdrop
+
+Layered SVG silhouettes of the Malvern Hills, built from real elevation data and
+seen from the Severn valley looking west. The layers stack on a web page and move
+at different speeds as it scrolls (parallax).
+
+## Data
+
+Environment Agency LIDAR Composite DTM, 1 m, 2022
+([dataset page](https://environment.data.gov.uk/dataset/13787b9a-26a4-4775-8523-806d13af58fc)),
+under the [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+
+The ArcGIS ImageServer URL listed in the dataset metadata no longer resolves, so
+`fetch_dtm.py` uses the dataset's WCS 2.0 endpoint instead. Large requests time
+out at the gateway and the service rate-limits, so the area is fetched in 2 km
+tiles, cached in `data/tiles_<res>m/`, and mosaicked locally. Rerunning resumes.
+
+Extent (British National Grid, EPSG:27700): E 369000 to 386000, N 233000 to 250000.
+
+## Run
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python scripts/fetch_dtm.py            # native 1 m, about 1.1 GB of tiles
+.venv/bin/python scripts/build_layers.py         # 8 layers into malvern-hills/layers/
+python3 -m http.server 8765                      # then open http://127.0.0.1:8765/
+```
+
+`index.html` is a demo page built on the component below. It also works opened
+directly from disk.
+
+## Using it in another page
+
+Everything the page needs is in the `malvern-hills/` folder:
+
+```text
+malvern-hills/
+  malvern-hills.css   component styles (all scoped to .mh-*)
+  malvern-hills.js    component script (no dependencies)
+  layers/             the SVG layers plus layers.json / layers.js
+```
+
+1. Copy `malvern-hills/` into the site.
+2. Add the stylesheet in `<head>`:
+
+   ```html
+   <link rel="stylesheet" href="/path/to/malvern-hills/malvern-hills.css">
+   ```
+
+3. Put one element where the hills should appear, with `data-src` pointing at
+   the `layers/` folder:
+
+   ```html
+   <div class="mh-hills" data-src="/path/to/malvern-hills/layers/"></div>
+   ```
+
+4. Add the script once, before `</body>`:
+
+   ```html
+   <script src="/path/to/malvern-hills/malvern-hills.js" defer></script>
+   ```
+
+5. Add the data credit somewhere on the page (required by the licence):
+
+   > Contains Environment Agency LIDAR Composite DTM data. © Environment Agency
+   > copyright and/or database right 2022. All rights reserved. Used under the
+   > [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/).
+
+Every `.mh-hills` element is set up when the page loads. For elements added
+later (for example by a framework), call `MalvernHills.init(element)`.
+
+### Options
+
+Data attributes on the element:
+
+| Attribute | Default | Effect |
+| --- | --- | --- |
+| `data-src` | `malvern-hills/layers/` | Folder with `layers.json` (or `layers.js`) and the SVGs. |
+| `data-strength` | `0.45` | How far the furthest layer moves, as a share of the band's distance from the screen centre. `0` turns parallax off. Nearer layers move proportionally less; the nearest stays fixed. |
+
+CSS custom properties on the element, or on any parent:
+
+| Property | Default | Effect |
+| --- | --- | --- |
+| `--mh-sky-top` | `#8fa9bf` | Sky colour at the top of the band. |
+| `--mh-sky-low` | `#e9e3d6` | Sky colour near the horizon. |
+| `--mh-sky-h` | `max(20vh, 140px)` | Height of the sky strip above the hills. |
+| `--mh-ground-h` | `14vh` | Height of the ground strip below the hills. |
+| `--mh-min-width` | `1100px` | The hills never draw narrower than this; on narrow screens the sides crop instead. |
+| `--mh-focus` | `0.68` | Which part stays in view when the sides crop: 0 is the south end, 1 the north end. |
+
+The band's total height is the sky strip, plus the hills (sized from the layer
+width and the SVG proportions), plus the ground strip. It works in a container
+of any width, not just full width.
+
+### What it expects from the surrounding page
+
+- **Above the band:** while the band is below the centre of the screen, the far
+  layers rise above its top edge and draw over whatever is above it. Make the
+  section above the same colour as `--mh-sky-top` so this blends in, and keep
+  text clear of the bottom of it. If that is not possible, add the class
+  `mh-hills--clip-top` to clip at the band's top edge (consider lowering
+  `data-strength` too, so peaks are not cut off).
+- **Below the band:** the ground is the nearest layer's colour (`#23302c`). Give
+  the section after the band that background for a seamless join.
+- **Alignment:** the layers line up exactly as drawn when the band is centred on
+  the screen.
+- **Reduced motion:** if the visitor's device asks for reduced motion, the layers
+  stay still and lined up.
+- **Browsers:** uses `overflow-x: clip` (Safari 16, Chrome 90, Firefox 81 and
+  later; see [MDN browser compatibility](https://developer.mozilla.org/en-US/docs/Web/CSS/overflow#browser_compatibility)). Older browsers fall back to clipping all edges.
+
+### Events
+
+Each element fires a bubbling `mh:ready` event when its layers are in place,
+with the layer data in `event.detail.manifest`. The demo page uses this to
+build its layer table.
+
+## Tuning `build_layers.py`
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `--res` | 5 | Working resolution in metres. Downsampling keeps the block maximum, so crests are not lost. |
+| `--axis` | 375789,234000,5.1 | Start easting, start northing and grid bearing of the axis line. |
+| `--length` | 15000 | Length of the axis in metres (the width of the view). |
+| `--crest-half` | 500 | Half-width of the ridge band, in metres. |
+| `--front` | 500,900,1600,2800,5000 | Band edges east of the axis, in metres. Four bands. |
+| `--behind` | 500,1300,2700,5000 | Band edges west of the axis, in metres. Three bands. |
+| `--peek` | 0.15,0.3,0.45 | Share of the width each behind-ridge layer should show above the ridge, nearest first. `0` keeps true heights. |
+| `--exaggeration` | 3 | Vertical exaggeration: every height is multiplied by this. |
+| `--smooth-m` | 20 | Gaussian smoothing along the profile, in metres. |
+| `--simplify` | 0.6 | Path simplification tolerance in SVG units. |
+
+### How the bands work
+
+Every band is a straight strip parallel to one axis line. The axis is a
+least-squares fit through 13 summits found in the DTM, from Chase End Hill to
+End Hill. It runs from E 375789 N 234000 on a grid bearing of 5.1° to about
+E 377122 N 248941. The view looks square on to it: from just south of due east, facing a bearing of about 275°.
+
+| Summit (from the DTM) | Easting | Northing | Height | Offset from axis |
+| --- | --- | --- | --- | --- |
+| Chase End Hill | 376102 | 235502 | 191 m | 178 m east |
+| (unnamed) | 375938 | 236428 | 256 m | 69 m west |
+| (unnamed) | 375958 | 237518 | 285 m | 147 m west |
+| (unnamed) | 376192 | 238572 | 273 m | 8 m west |
+| (unnamed) | 375992 | 239648 | 328 m | 304 m west |
+| Herefordshire Beacon | 375998 | 240032 | 339 m | 333 m west |
+| (unnamed) | 376832 | 241302 | 309 m | 387 m east |
+| (unnamed) | 376792 | 242108 | 358 m | 275 m east |
+| (unnamed) | 376908 | 243028 | 326 m | 308 m east |
+| Worcestershire Beacon | 376882 | 245228 | 425 m | 85 m east |
+| (unnamed) | 376692 | 245792 | 370 m | 156 m west |
+| North Hill | 376932 | 246362 | 398 m | 33 m east |
+| End Hill area | 376690 | 246802 | 328 m | 248 m west |
+
+Summits marked "(unnamed)" are local high points the fit found; they are not
+matched to names here. All lie within 390 m of the axis, so the ridge band
+(±500 m) contains every one of them. Each layer is the maximum elevation within
+its strip, sampled in slices across the strip every 5 m along the axis.
+
+Land behind the ridge is lower than the crest, so in a true view from the east
+it is almost entirely hidden. `--peek` lifts each behind-ridge layer by a
+constant amount, chosen so it shows above the ridge along roughly that share of
+the width. The lift is recorded per layer in `layers.json` (`lift_m`). This is
+an artistic adjustment, not real terrain; use `--peek 0` for true heights.
+
+All layers share one viewBox (sea level at y = 0), so they line up when stacked.
+Output goes to `malvern-hills/layers/`: one SVG per layer, a combined `malverns-all.svg`, and
+`layers.json` / `layers.js` describing the bands.
+
+## Credit
+
+Contains Environment Agency LIDAR Composite DTM data. © Environment Agency
+copyright and/or database right 2022. All rights reserved.

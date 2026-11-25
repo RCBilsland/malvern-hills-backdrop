@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Malvern Hills Parallax</title>
+
+<!-- 1. Component styles -->
+<link rel="stylesheet" href="malvern-hills/malvern-hills.css">
+
+<!-- Everything below is this demo page's own styling, not part of the component. -->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: #23302c;            /* nearest layer colour, so the band joins seamlessly */
+    color: #e8ece9;
+    font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .intro {
+    background: #8fa9bf;            /* same as --mh-sky-top, so raised peaks blend in */
+    color: #1d2a33;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 64px 16px;
+  }
+  .intro h1 { margin: 0; font-size: clamp(2rem, 6vw, 4.2rem); font-weight: 600; letter-spacing: -0.02em; }
+  .intro p { margin: 0.4em auto 0; max-width: 34em; opacity: 0.8; }
+  .intro .hint { margin-top: 3em; font-size: 0.9rem; opacity: 0.6; }
+  .content { max-width: 680px; margin: 0 auto; padding: 64px 16px 96px; }
+  .content h2 { font-weight: 600; margin-top: 0; }
+  .content p { color: #a9b5af; }
+  .content table { width: 100%; border-collapse: collapse; color: #a9b5af; font-size: 0.9rem; }
+  .content th { text-align: left; color: #e8ece9; font-weight: 600; }
+  .content th, .content td { padding: 4px 8px 4px 0; }
+  .credit {
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 24px 16px 40px;
+    font-size: 0.85rem;
+    color: #a9b5af;
+    text-align: center;
+  }
+  .credit a { color: #e8ece9; }
+</style>
+</head>
+<body>
+
+<header class="intro">
+  <h1>The Malvern Hills</h1>
+  <p>From the Severn valley, looking west across the ridge into Herefordshire.</p>
+  <p class="hint">Scroll down</p>
+</header>
+
+<!-- 2. The component: one element wherever the hills should appear. -->
+<div class="mh-hills" data-src="malvern-hills/layers/" data-strength="0.45"></div>
+
+<section class="content">
+  <h2>How this was made</h2>
+  <p>
+    Each layer is an elevation profile from the Environment Agency's 1&nbsp;m LIDAR
+    terrain model, resampled to 5&nbsp;m. A straight line is fitted through the
+    summits from Chase End Hill to End Hill, which runs at a grid bearing of
+    about 5&deg;. Each layer takes the highest point within a straight strip
+    parallel to that line, at a set distance east or west of it.
+  </p>
+  <p>
+    Layers run from the nearest band (east, on the Severn side) to the furthest
+    (west, in Herefordshire behind the ridge). Distant layers are paler to suggest
+    haze. As the hills pass through the screen, the layers line up when the band
+    is centred; distant layers sit higher while it is below the centre and sink
+    behind the ridge once it passes above. The vertical scale is exaggerated so
+    the hills read at screen size, and the two furthest layers are raised
+    slightly so they show above the ridge, as listed below.
+  </p>
+  <div id="layer-table"></div>
+  <p style="height: 40vh"></p>
+</section>
+
+<!-- Data credit: required by the Open Government Licence wherever the layers are used. -->
+<footer class="credit">
+  Contains Environment Agency LIDAR Composite DTM data.
+  © Environment Agency copyright and/or database right 2022. All rights reserved.
+  Used under the <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence v3.0</a>.
+</footer>
+
+<!-- Demo only: list the layers once the component has loaded them. -->
+<script>
+  document.addEventListener('mh:ready', (e) => {
+    const rows = e.detail.manifest.layers.map((L, i) =>
+      `<tr><td>${i + 1}</td><td>${L.band}</td><td>${Math.round(L.max_elevation_m)} m</td>` +
+      `<td>${L.lift_m ? Math.round(L.lift_m) + ' m' : ''}</td></tr>`).join('');
+    document.getElementById('layer-table').innerHTML =
+      `<table><thead><tr><th>Layer</th><th>Band</th><th>Highest point</th><th>Lift</th></tr></thead>` +
+      `<tbody>${rows}</tbody></table>`;
+  });
+</script>
+
+<!-- 3. Component script -->
+<script src="malvern-hills/malvern-hills.js" defer></script>
+</body>
+</html>
