@@ -13,6 +13,8 @@
  *   --mh-min-width   the hills never draw narrower than this (sides crop instead)
  *   --mh-focus       0 to 1: which part stays in view when the sides crop
  *                    (0 = south end, 1 = north end; 0.68 keeps Worcestershire Beacon)
+ *   --mh-overdraw    how far above the band the far layers may draw while the
+ *                    band is below the centre of the screen (0px = clip at the band)
  * The ground colour below the band is the nearest layer's colour (#23302c by
  * default); give the section after the band that background for a seamless join.
  */
@@ -24,6 +26,7 @@
   --mh-ground-h: 14vh;
   --mh-min-width: 1100px;
   --mh-focus: 0.68;
+  --mh-overdraw: 50vh;
   /* Set by the script: --mh-width (band width in px) and --mh-ratio (SVG height/width). */
   --mh-layer-w: max(var(--mh-width, 100vw), var(--mh-min-width), 170vh);
 
@@ -31,17 +34,23 @@
   display: block;
   height: calc(var(--mh-sky-h) + var(--mh-layer-w) * var(--mh-ratio, 0.135) + var(--mh-ground-h));
   background: linear-gradient(to bottom, var(--mh-sky-top) 0%, var(--mh-sky-low) 80%);
-  /* Clip the sides and bottom but not the top: far layers rise above the band
-     while it is below the centre of the screen. Use .mh-hills--clip-top if the
-     section above is not the same sky colour. */
-  overflow-x: clip;
-  overflow-y: visible;
-  clip-path: inset(-100vh 0 0 0);
 }
-@supports not (overflow-x: clip) {
-  .mh-hills { overflow: hidden; }
+/* Use .mh-hills--clip-top if the section above is not the same sky colour. */
+.mh-hills--clip-top { --mh-overdraw: 0px; }
+
+/* The stage holds the layers. It matches the band at the sides and bottom but
+   reaches --mh-overdraw above it, and clips with plain overflow: hidden, which
+   every browser treats the same. Far layers can therefore rise above the band
+   without being cut off, while the sides and the ground below stay trimmed. */
+.mh-stage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: calc(-1 * var(--mh-overdraw));
+  overflow: hidden;
+  pointer-events: none;   /* the overdraw must not block clicks on the section above */
 }
-.mh-hills--clip-top { clip-path: inset(0); }
 
 .mh-layer {
   position: absolute;

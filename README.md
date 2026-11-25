@@ -88,6 +88,7 @@ CSS custom properties on the element, or on any parent:
 | `--mh-ground-h` | `14vh` | Height of the ground strip below the hills. |
 | `--mh-min-width` | `1100px` | The hills never draw narrower than this; on narrow screens the sides crop instead. |
 | `--mh-focus` | `0.68` | Which part stays in view when the sides crop: 0 is the south end, 1 the north end. |
+| `--mh-overdraw` | `50vh` | How far above the band the far layers may draw. `0px` clips at the band's top edge. |
 
 The band's total height is the sky strip, plus the hills (sized from the layer
 width and the SVG proportions), plus the ground strip. It works in a container
@@ -96,19 +97,22 @@ of any width, not just full width.
 ### What it expects from the surrounding page
 
 - **Above the band:** while the band is below the centre of the screen, the far
-  layers rise above its top edge and draw over whatever is above it. Make the
-  section above the same colour as `--mh-sky-top` so this blends in, and keep
-  text clear of the bottom of it. If that is not possible, add the class
-  `mh-hills--clip-top` to clip at the band's top edge (consider lowering
-  `data-strength` too, so peaks are not cut off).
+  layers rise above its top edge (up to `--mh-overdraw`) and draw over whatever
+  is above it. Make the section above the same colour as `--mh-sky-top` so this
+  blends in, and keep text clear of the bottom of it. The overdraw area ignores
+  the mouse, so links above stay clickable. If the section above cannot match,
+  add the class `mh-hills--clip-top` to clip at the band's top edge (consider
+  lowering `data-strength` too, so peaks are not cut off).
 - **Below the band:** the ground is the nearest layer's colour (`#23302c`). Give
   the section after the band that background for a seamless join.
 - **Alignment:** the layers line up exactly as drawn when the band is centred on
   the screen.
 - **Reduced motion:** if the visitor's device asks for reduced motion, the layers
   stay still and lined up.
-- **Browsers:** uses `overflow-x: clip` (Safari 16, Chrome 90, Firefox 81 and
-  later; see [MDN browser compatibility](https://developer.mozilla.org/en-US/docs/Web/CSS/overflow#browser_compatibility)). Older browsers fall back to clipping all edges.
+- **Browsers:** clipping uses only `overflow: hidden` on an inner stage that
+  reaches above the band, so it behaves the same in Safari, Chrome and Firefox.
+  (An earlier version used `overflow-x: clip` with a negative `clip-path`
+  inset; Safari clipped the raised layers at the band's top edge.)
 
 ### Events
 

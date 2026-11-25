@@ -75,8 +75,10 @@
       el.setAttribute('aria-label', 'Silhouette of the Malvern Hills seen from the east');
     }
 
-    // Furthest first, so nearer layers paint over it.
-    const frag = document.createDocumentFragment();
+    // Furthest first, so nearer layers paint over it. The layers live in a
+    // stage that reaches above the band (see .mh-stage in the CSS).
+    const stage = document.createElement('div');
+    stage.className = 'mh-stage';
     for (const L of [...data.layers].reverse()) {
       const layer = document.createElement('div');
       layer.className = 'mh-layer';
@@ -88,10 +90,10 @@
       fill.className = 'mh-fill';
       fill.style.background = L.colour;
       layer.append(img, fill);
-      frag.appendChild(layer);
+      stage.appendChild(layer);
       inst.layers.push({ el: layer, speed: strength * L.depth });
     }
-    el.appendChild(frag);
+    el.appendChild(stage);
 
     // The band's height depends on its width, so track it.
     const setWidth = () => el.style.setProperty('--mh-width', el.clientWidth + 'px');
