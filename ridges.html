@@ -5,19 +5,97 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Malvern Ridgelines</title>
 
+<!-- Demo only: apply a saved light/dark choice before anything is drawn. -->
+<script>
+  try {
+    const saved = localStorage.getItem('mr-theme');
+    if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+  } catch (e) { /* storage unavailable: follow the system setting */ }
+</script>
+
 <!-- 1. Component styles -->
 <link rel="stylesheet" href="malvern-ridges/malvern-ridges.css">
 
 <!-- Everything below is this demo page's own styling, not part of the component. -->
 <style>
+  /* Page colours: dark by default, light from the system setting or the switch. */
+  :root {
+    --page-bg: #000; --page-text: #e6e6e6; --page-muted: #8a8a8a; --page-body: #a8a8a8;
+    --page-rule: rgba(255, 255, 255, 0.12);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --page-bg: #f5f3ee; --page-text: #161616; --page-muted: #6b6b6b; --page-body: #444;
+      --page-rule: rgba(0, 0, 0, 0.12);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --page-bg: #f5f3ee; --page-text: #161616; --page-muted: #6b6b6b; --page-body: #444;
+    --page-rule: rgba(0, 0, 0, 0.12);
+    color-scheme: light;
+  }
+
+  /* Marker colours from the logo: brighter on black, deeper on the light page. */
+  .mr-ridges { --mr-marker: #2ebf91; --mr-marker-top: #6087c3; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) .mr-ridges { --mr-marker: #1e9e74; --mr-marker-top: #4f78b8; }
+  }
+  :root[data-theme="light"] .mr-ridges { --mr-marker: #1e9e74; --mr-marker-top: #4f78b8; }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; }
   body {
-    background: #000;
-    color: #e6e6e6;
+    background: var(--page-bg);
+    color: var(--page-text);
     font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    transition: background-color 0.3s, color 0.3s;
   }
-  .stage { max-width: 1200px; margin: 0 auto; padding: 48px 16px 0; }
+  .stage { position: relative; max-width: 1200px; margin: 0 auto; padding: 48px 16px 0; }
+
+  /* Light/dark switch */
+  .theme-switch {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 4px 6px 12px;
+    border: 1px solid var(--page-rule);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--page-muted);
+    font: inherit;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .theme-switch:hover { color: var(--page-text); }
+  .theme-switch:focus-visible { outline: 2px solid var(--page-text); outline-offset: 2px; }
+  .theme-switch .track {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--page-rule);
+  }
+  .theme-switch .knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--page-text);
+    transition: transform 0.2s;
+  }
+  .theme-switch[aria-checked="true"] .knob { transform: translateX(18px); }
+  @media (prefers-reduced-motion: reduce) {
+    body, .theme-switch .knob { transition: none; }
+  }
   .stage h1 {
     margin: 0 0 24px;
     text-align: center;
@@ -34,16 +112,16 @@
     font-size: 0.8rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #8a8a8a;
+    color: var(--page-muted);
   }
   .content { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
-  .content p { color: #a8a8a8; }
-  .content a, .credit a { color: #e6e6e6; }
+  .content p { color: var(--page-body); }
+  .content a, .credit a { color: var(--page-text); }
   .credit {
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: 1px solid var(--page-rule);
     padding: 24px 16px 40px;
     font-size: 0.85rem;
-    color: #8a8a8a;
+    color: var(--page-muted);
     text-align: center;
   }
 </style>
@@ -51,6 +129,9 @@
 <body>
 
 <section class="stage">
+  <button class="theme-switch" type="button" role="switch" aria-checked="true" id="theme-switch">
+    <span>Dark</span><span class="track" aria-hidden="true"><span class="knob"></span></span>
+  </button>
   <h1>Malvern Hills</h1>
 
   <!-- 2. The component: one element wherever the view should appear. -->
@@ -58,8 +139,7 @@
        data-bearing="140"
        data-marker="52.1266,-2.3376"
        data-marker-image="assets/coco-software-logo.png"
-       data-marker-label="Coco Software"
-       style="--mr-marker: #2ebf91; --mr-marker-top: #6087c3"></div>
+       data-marker-label="Coco Software"></div>
 
   <div class="readout" aria-live="off">
     <span id="facing">Facing</span>
@@ -84,6 +164,28 @@
   copyright and/or database right 2022. All rights reserved. Used under the
   <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence v3.0</a>.
 </footer>
+
+<!-- Demo only: the light/dark switch. It sets data-theme on <html>, which the
+     component watches, and remembers the choice. -->
+<script>
+  const sw = document.getElementById('theme-switch');
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+  const isDark = () => (document.documentElement.dataset.theme || (systemDark.matches ? 'dark' : 'light')) === 'dark';
+  const showState = () => {
+    const dark = isDark();
+    sw.setAttribute('aria-checked', String(dark));
+    sw.firstElementChild.textContent = dark ? 'Dark' : 'Light';
+    sw.setAttribute('aria-label', dark ? 'Dark mode on. Switch to light mode' : 'Light mode on. Switch to dark mode');
+  };
+  sw.addEventListener('click', () => {
+    const next = isDark() ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem('mr-theme', next); } catch (e) { /* not saved: fine */ }
+    showState();
+  });
+  systemDark.addEventListener('change', showState);
+  showState();
+</script>
 
 <!-- Demo only: show which way the view is facing. -->
 <script>

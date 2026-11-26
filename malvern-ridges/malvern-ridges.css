@@ -5,10 +5,20 @@
  * plus malvern-ridges.js. Everything is scoped to .mr-* classes and --mr-*
  * custom properties.
  *
- * Customise by setting any of these on .mr-ridges (or a parent). They are read
- * once when the component starts:
+ * Light and dark: the component follows the visitor's system setting
+ * (prefers-color-scheme) unless a data-theme="light" or data-theme="dark"
+ * attribute on the element or any parent (usually <html>) says otherwise. The
+ * script repaints when either changes.
+ *
+ * Customise by setting any of these on .mr-ridges (or a parent). The themes
+ * set only --mr-bg, --mr-line, --mr-line-width, --mr-depth-fade and --mr-marker-image-filter; to change those in
+ * one theme, use the same selectors as the theme rules below. The marker
+ * colours are not themed, so a page can set them once or per theme itself:
  *   --mr-bg       background, also used to hide lines behind the hills
  *   --mr-line     line colour
+ *   --mr-line-width  line width in CSS pixels, as a plain number (1.6 dark, 1.2 light)
+ *   --mr-depth-fade  0 to 1: how far the furthest lines fade towards the
+ *                 background, like haze (0.35 dark, 0.55 light)
  *   --mr-marker   colour of the marker arrow's tip and the foot of its stem
  *   --mr-marker-top  colour at the top of the arrow and stem (a gradient;
  *                 defaults to --mr-marker)
@@ -20,9 +30,13 @@
  */
 
 .mr-ridges {
+  /* Dark theme (the default) */
   --mr-bg: #000;
   --mr-line: #f2f2f2;
+  --mr-line-width: 1.6;
+  --mr-depth-fade: 0.35;
   --mr-marker: #ff5a36;
+  --mr-marker-image-filter: brightness(1.12);
   --mr-marker-plate: var(--mr-bg);
   --mr-marker-plate-opacity: 70%;
   --mr-ratio: 16 / 10;
@@ -36,6 +50,36 @@
   touch-action: pan-y;      /* vertical swipes still scroll the page */
   user-select: none;
 }
+/* Light theme: from the system setting, unless a data-theme says dark... */
+@media (prefers-color-scheme: light) {
+  .mr-ridges {
+    --mr-bg: #f5f3ee;
+    /* A soft warm grey and a finer line: full black on a light background
+       reads as a harsh, busy texture across this many lines. */
+    --mr-line: #4a4744;
+    --mr-line-width: 1.2;
+    --mr-depth-fade: 0.55;
+    --mr-marker-image-filter: none;
+  }
+}
+/* ...or when asked for explicitly. */
+[data-theme="light"] .mr-ridges,
+.mr-ridges[data-theme="light"] {
+  --mr-bg: #f5f3ee;
+  --mr-line: #4a4744;
+  --mr-line-width: 1.2;
+  --mr-depth-fade: 0.55;
+  --mr-marker-image-filter: none;
+}
+[data-theme="dark"] .mr-ridges,
+.mr-ridges[data-theme="dark"] {
+  --mr-bg: #000;
+  --mr-line: #f2f2f2;
+  --mr-line-width: 1.6;
+  --mr-depth-fade: 0.35;
+  --mr-marker-image-filter: brightness(1.12);
+}
+
 .mr-ridges.mr-dragging { cursor: grabbing; }
 .mr-ridges canvas {
   position: absolute;
@@ -77,7 +121,7 @@
   gap: 4px;
   animation: mr-float 2.4s ease-in-out infinite;
 }
-.mr-marker svg { display: block; filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.9)); }
+.mr-marker svg { display: block; filter: drop-shadow(0 0 6px var(--mr-bg)); }
 .mr-marker-image {
   display: block;
   width: var(--mr-marker-image-w, clamp(120px, 18vw, 220px));
@@ -89,14 +133,14 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--mr-marker-plate) var(--mr-marker-plate-opacity), transparent);
   box-shadow: 0 0 14px 8px color-mix(in srgb, var(--mr-marker-plate) var(--mr-marker-plate-opacity), transparent);
-  filter: brightness(1.12);
+  filter: var(--mr-marker-image-filter);
 }
 .mr-marker-label {
   white-space: nowrap;
   font: 600 11px/1.2 system-ui, -apple-system, sans-serif;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  text-shadow: 0 0 6px #000, 0 0 2px #000;
+  text-shadow: 0 0 6px var(--mr-bg), 0 0 2px var(--mr-bg);
 }
 @keyframes mr-float {
   0%, 100% { transform: translate(-50%, 0); }

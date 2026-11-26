@@ -16,7 +16,11 @@
  *   data-speed         orbit speed in degrees per second (default 4; 0 = still)
  *   data-elevation     camera height above the horizon in degrees (default 12)
  *   data-bearing       direction the view starts facing, degrees (default 275, west across the ridge)
- *   data-line-width    line width in CSS pixels (default 1.6)
+ *   data-line-width    line width in CSS pixels; overrides the --mr-line-width
+ *                      CSS property (1.6 in dark, 1.2 in light)
+ *   data-depth-fade    how far the furthest lines fade towards the background,
+ *                      0 to 1; overrides the --mr-depth-fade CSS property
+ *                      (0.35 in dark, 0.55 in light)
  *   data-edge-fade     share of the radius over which heights flatten towards
  *                      the rim (default 0.12; 0 = true heights to the edge)
  *   data-marker        "latitude,longitude" in decimal degrees (WGS84, as GPS
@@ -253,6 +257,8 @@
     uniform float uWidth;    // line width in device pixels
     in vec3 aPos; in vec3 aPrev; in vec3 aNext; in float aSide; in float aMix;
     out float vMix;
+    out float vDist;
+    uniform vec3 uEye;
     vec2 screen(vec4 c) { return c.xy / c.w * uHalf; }
     void main() {
       vec4 c = uMVP * vec4(aPos, 1.0);
@@ -268,14 +274,23 @@
       c.xy += n * aSide * uWidth * 0.5 * miter / uHalf * c.w;
       gl_Position = c;
       vMix = aMix;
+      vDist = distance(aPos, uEye);
     }`;
   const LINE_FS = `#version 300 es
     precision mediump float;
     uniform vec3 uColour;
     uniform vec3 uColourTop;
+    uniform vec3 uBg;
+    uniform vec2 uFadeRange;   // distance of the nearest and furthest rim
+    uniform float uFade;       // how far the furthest lines fade into uBg
     in float vMix;
+    in float vDist;
     out vec4 o;
-    void main() { o = vec4(mix(uColour, uColourTop, vMix), 1.0); }`;
+    void main() {
+      vec3 c = mix(uColour, uColourTop, vMix);
+      float t = clamp((vDist - uFadeRange.x) / (uFadeRange.y - uFadeRange.x), 0.0, 1.0);
+      o = vec4(mix(c, uBg, uFade * t), 1.0);
+    }`;
 
   function program(gl, vs, fs) {
     const p = gl.createProgram();
@@ -328,7 +343,8 @@
     const src = (el.dataset.src || DEFAULT_SRC).replace(/\/?$/, '/');
     const exaggeration = num(el, 'exaggeration', 3);
     const speed = num(el, 'speed', 4);
-    const lineWidth = num(el, 'lineWidth', 1.6);
+    const fixedWidth = num(el, 'lineWidth', NaN);
+    const fixedFade = num(el, 'depthFade', NaN);
     const edgeFade = num(el, 'edgeFade', 0.12);
     let elevation = num(el, 'elevation', 12);
     let bearing = num(el, 'bearing', 275);       // direction the view faces
@@ -351,8 +367,21 @@
     }
     el.appendChild(canvas);
 
-    const bg = cssColour(el, '--mr-bg', '#000');
-    const fg = cssColour(el, '--mr-line', '#f2f2f2');
+    // Colours come from the CSS custom properties and are read again whenever
+    // the theme might have changed (see watchTheme below).
+    let bg, fg, markerColour, markerTop, lineWidth, depthFade;
+    function readColours() {
+      bg = cssColour(el, '--mr-bg', '#000');
+      fg = cssColour(el, '--mr-line', '#f2f2f2');
+      const marker = getComputedStyle(el).getPropertyValue('--mr-marker').trim() || '#ff5a36';
+      markerColour = cssColour(el, '--mr-marker', marker);
+      markerTop = cssColour(el, '--mr-marker-top', marker);
+      const cssWidth = parseFloat(getComputedStyle(el).getPropertyValue('--mr-line-width'));
+      lineWidth = Number.isFinite(fixedWidth) ? fixedWidth : Number.isFinite(cssWidth) ? cssWidth : 1.6;
+      const cssFade = parseFloat(getComputedStyle(el).getPropertyValue('--mr-depth-fade'));
+      depthFade = Math.min(1, Math.max(0, Number.isFinite(fixedFade) ? fixedFade : Number.isFinite(cssFade) ? cssFade : 0));
+    }
+    readColours();
     const geo = buildGeometry(data, exaggeration, edgeFade);
 
     const surfProg = program(gl, SURF_VS, SURF_FS);
@@ -381,8 +410,6 @@
     // Markers: an arrow (HTML, so it stays crisp and styleable) floating above
     // each point, joined to the ground by a stem drawn in the scene, so the
     // part of the stem behind a hill is hidden like the lines are.
-    const markerColour = cssColour(el, '--mr-marker', '#ff5a36');
-    const markerTop = cssColour(el, '--mr-marker-top', getComputedStyle(el).getPropertyValue('--mr-marker').trim() || '#ff5a36');
     const labels = (el.dataset.markerLabel || '').split(';').map(t => t.trim());
     const images = (el.dataset.markerImage || '').split(';').map(t => t.trim());
     // Tall enough to lift the arrow clear of the hills at any exaggeration.
@@ -449,6 +476,10 @@
       lineMVP: gl.getUniformLocation(lineProg, 'uMVP'),
       lineColour: gl.getUniformLocation(lineProg, 'uColour'),
       lineColourTop: gl.getUniformLocation(lineProg, 'uColourTop'),
+      eye: gl.getUniformLocation(lineProg, 'uEye'),
+      bg: gl.getUniformLocation(lineProg, 'uBg'),
+      fadeRange: gl.getUniformLocation(lineProg, 'uFadeRange'),
+      fade: gl.getUniformLocation(lineProg, 'uFade'),
       half: gl.getUniformLocation(lineProg, 'uHalf'),
       width: gl.getUniformLocation(lineProg, 'uWidth'),
     };
@@ -500,11 +531,18 @@
       gl.uniform3fv(U.lineColourTop, fg);
       gl.uniform2f(U.half, W / 2, H / 2);
       gl.uniform1f(U.width, lineWidth * dpr);
+      // Depth fade: lines get closer to the background colour with distance,
+      // from none at the near rim to depthFade at the far rim, like haze.
+      gl.uniform3fv(U.eye, eye);
+      gl.uniform3fv(U.bg, bg);
+      gl.uniform2f(U.fadeRange, dist - R * Math.cos(el_r), dist + R * Math.cos(el_r));
+      gl.uniform1f(U.fade, depthFade);
       gl.bindVertexArray(lineVao);
       gl.drawElements(gl.TRIANGLES, geo.line.idx.length, gl.UNSIGNED_INT, 0);
       if (stemVao) {
         gl.uniform3fv(U.lineColour, markerColour);
         gl.uniform3fv(U.lineColourTop, markerTop);
+        gl.uniform1f(U.fade, 0);              // the marker stays at full strength
         gl.bindVertexArray(stemVao);
         gl.drawElements(gl.TRIANGLES, stemCount, gl.UNSIGNED_INT, 0);
       }
@@ -567,6 +605,15 @@
         .observe(el);
     }
     document.addEventListener('visibilitychange', kick);
+
+    // Repaint in the new colours when the system theme changes, or when a
+    // data-theme, class or style attribute changes on the element or a parent.
+    const recolour = () => { readColours(); kick(); };
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', recolour);
+    const watch = new MutationObserver(recolour);
+    for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
+      watch.observe(node, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
+    }
     reduce.addEventListener('change', kick);
     if ('ResizeObserver' in window) new ResizeObserver(kick).observe(el);
     else window.addEventListener('resize', kick);
@@ -577,6 +624,7 @@
       bearing: { get: () => bearing },
       elevation: { get: () => elevation },
       redraw: { value: kick },
+      recolour: { value: recolour },
     });
     el.dispatchEvent(new CustomEvent('mr:ready', { bubbles: true, detail: { data } }));
     kick();

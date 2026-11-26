@@ -208,7 +208,8 @@ To use it in another page, copy `malvern-ridges/` and add:
 | `data-speed` | `4` | Orbit speed in degrees per second. `0` keeps it still. |
 | `data-elevation` | `12` | Camera height above the horizon, degrees. |
 | `data-bearing` | `275` | Direction the view faces at the start (west, across the ridge). |
-| `data-line-width` | `1.6` | Line width in CSS pixels. |
+| `data-line-width` | none | Line width in CSS pixels. Overrides `--mr-line-width`, which the themes set to 1.6 (dark) and 1.2 (light). |
+| `data-depth-fade` | none | How far the furthest lines fade towards the background, 0 to 1, like haze. Overrides `--mr-depth-fade`, which the themes set to 0.35 (dark) and 0.55 (light). The marker never fades. |
 | `data-edge-fade` | `0.12` | Share of the radius over which heights flatten towards the rim. `0` keeps true heights to the edge. This is an artistic adjustment. |
 | `data-marker` | none | `latitude,longitude` in decimal degrees (WGS84, as GPS and web maps give them; west is negative). A floating arrow points at that spot. Separate several with `;`. |
 | `data-marker-label` | none | Text shown above each arrow, separated with `;` to match the markers. |
@@ -227,6 +228,30 @@ viewer (nearest at about 185°) and it stays on the near side until about 275°.
 arrow to the ground and is hidden where a hill stands in front of it. A marker
 outside the mapped circle is skipped with a console warning. The instance
 lists the converted positions in `element.mrInstance.markers`.
+
+**Light and dark.** The component follows the visitor's system setting
+([`prefers-color-scheme`](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme))
+unless a `data-theme="light"` or `data-theme="dark"` attribute on the element or
+any parent (usually `<html>`) says otherwise. It repaints straight away when
+either changes, so a page's own theme switch only has to set that attribute.
+
+| Theme | Background | Lines | Line width | Depth fade |
+| --- | --- | --- | --- | --- |
+| Dark (default) | `#000` | `#f2f2f2` | 1.6 px | 0.35 |
+| Light | `#f5f3ee` | `#4a4744` (warm grey) | 1.2 px | 0.55 |
+
+The depth fade blends each line towards the background with distance, from
+none at the near edge of the circle to the given share at the far edge. The
+light theme uses a softer grey, finer lines and a stronger fade because full black on a light
+background reads as a harsh, busy texture across this many lines.
+
+The themes set only `--mr-bg`, `--mr-line`, `--mr-line-width`, `--mr-depth-fade` and `--mr-marker-image-filter`. To
+change those in one theme, use the same selectors as the component
+(`[data-theme="light"] .mr-ridges` and the `prefers-color-scheme` media query).
+Marker colours are not themed, so the page sets them; the demo uses the logo's
+colours, brighter on black (`#2ebf91`, `#6087c3`) and deeper on the light
+background (`#1e9e74`, `#4f78b8`). The demo's switch, top right, remembers the
+choice in the browser.
 
 CSS properties `--mr-bg`, `--mr-line`, `--mr-marker` (default `#ff5a36`), `--mr-marker-top` (top of the arrow and stem gradient) and `--mr-ratio` (default `16 / 10`) set
 the colours and proportions. It needs WebGL 2, does not turn by itself when
