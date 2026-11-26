@@ -12,7 +12,7 @@
  *
  * Options, as data attributes on the element:
  *   data-src           folder holding ridges.json / ridges.js (default "malvern-ridges/data/")
- *   data-exaggeration  vertical exaggeration (default 6)
+ *   data-exaggeration  vertical exaggeration (default 3, as the layered view)
  *   data-speed         orbit speed in degrees per second (default 4; 0 = still)
  *   data-elevation     camera height above the horizon in degrees (default 8)
  *   data-bearing       direction the view starts facing, degrees (default 275, west across the ridge)
@@ -326,7 +326,7 @@
     if (el.mrInstance) return el.mrInstance;
     const inst = (el.mrInstance = {});
     const src = (el.dataset.src || DEFAULT_SRC).replace(/\/?$/, '/');
-    const exaggeration = num(el, 'exaggeration', 6);
+    const exaggeration = num(el, 'exaggeration', 3);
     const speed = num(el, 'speed', 4);
     const lineWidth = num(el, 'lineWidth', 1.6);
     const edgeFade = num(el, 'edgeFade', 0.12);
