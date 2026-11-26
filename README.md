@@ -173,6 +173,50 @@ All layers share one viewBox (sea level at y = 0), so they line up when stacked.
 Output goes to `malvern-hills/layers/`: one SVG per layer, a combined `malverns-all.svg`, and
 `layers.json` / `layers.js` describing the bands.
 
+## Ridgeline view (`ridges.html`)
+
+A second visualisation of the same data: parallel elevation profiles crossing
+the ridge at 45 degrees, drawn as white lines on black that hide whatever lies
+behind them, in the manner of a ridgeline ("joy") plot. The view slowly orbits
+the hills in 3D and can be turned by dragging.
+
+```bash
+.venv/bin/python scripts/build_ridges.py         # writes malvern-ridges/data/
+```
+
+| Option | Default | Effect |
+| --- | --- | --- |
+| `--angle` | 45 | Angle of the lines to the summit axis, degrees clockwise (bearing 50.1°). |
+| `--radius` | 7400 | Radius of the circle of lines, metres, centred on the axis midpoint (E 376456 N 241470). |
+| `--spacing` | 200 | Distance between lines, metres (75 lines). |
+| `--step` | 20 | Distance between samples along a line, metres. |
+| `--smooth-m` | 30 | Gaussian smoothing along each line, metres. |
+
+Heights are stored as true elevations; exaggeration is applied in the browser.
+
+To use it in another page, copy `malvern-ridges/` and add:
+
+```html
+<link rel="stylesheet" href="/path/to/malvern-ridges/malvern-ridges.css">
+<div class="mr-ridges" data-src="/path/to/malvern-ridges/data/"></div>
+<script src="/path/to/malvern-ridges/malvern-ridges.js" defer></script>
+```
+
+| Attribute | Default | Effect |
+| --- | --- | --- |
+| `data-exaggeration` | `6` | Vertical exaggeration. |
+| `data-speed` | `4` | Orbit speed in degrees per second. `0` keeps it still. |
+| `data-elevation` | `8` | Camera height above the horizon, degrees. |
+| `data-bearing` | `275` | Direction the view faces at the start (west, across the ridge). |
+| `data-line-width` | `1.6` | Line width in CSS pixels. |
+| `data-edge-fade` | `0.12` | Share of the radius over which heights flatten towards the rim. `0` keeps true heights to the edge. This is an artistic adjustment. |
+
+CSS properties `--mr-bg`, `--mr-line` and `--mr-ratio` (default `16 / 10`) set
+the colours and proportions. It needs WebGL 2, does not turn by itself when
+reduced motion is requested, and pauses while off screen. Events: `mr:ready`
+(data in `event.detail.data`) and `mr:view` (`{ bearing, elevation }`). The
+same data credit applies.
+
 ## Credit
 
 Contains Environment Agency LIDAR Composite DTM data. © Environment Agency

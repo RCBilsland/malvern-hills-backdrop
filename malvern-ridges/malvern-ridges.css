@@ -1,0 +1,49 @@
+/*
+ * Malvern Hills ridgelines: drop-in component styles.
+ *
+ * Usage: <div class="mr-ridges" data-src="malvern-ridges/data/"></div>
+ * plus malvern-ridges.js. Everything is scoped to .mr-* classes and --mr-*
+ * custom properties.
+ *
+ * Customise by setting any of these on .mr-ridges (or a parent). They are read
+ * once when the component starts:
+ *   --mr-bg       background, also used to hide lines behind the hills
+ *   --mr-line     line colour
+ *   --mr-ratio    width / height of the view (the element can also be given
+ *                 an explicit height instead)
+ */
+
+.mr-ridges {
+  --mr-bg: #000;
+  --mr-line: #f2f2f2;
+  --mr-ratio: 16 / 10;
+
+  position: relative;
+  display: block;
+  aspect-ratio: var(--mr-ratio);
+  background: var(--mr-bg);
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;      /* vertical swipes still scroll the page */
+  user-select: none;
+}
+.mr-ridges.mr-dragging { cursor: grabbing; }
+.mr-ridges canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.mr-ridges.mr-ridges--error { cursor: default; }
+.mr-ridges.mr-ridges--error::after {
+  content: "This view needs WebGL 2, which this browser does not provide.";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  text-align: center;
+  color: var(--mr-line);
+  font: 14px/1.4 system-ui, sans-serif;
+}

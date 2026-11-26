@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Malvern Ridgelines</title>
+
+<!-- 1. Component styles -->
+<link rel="stylesheet" href="malvern-ridges/malvern-ridges.css">
+
+<!-- Everything below is this demo page's own styling, not part of the component. -->
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: #000;
+    color: #e6e6e6;
+    font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .stage { max-width: 1200px; margin: 0 auto; padding: 48px 16px 0; }
+  .stage h1 {
+    margin: 0 0 24px;
+    text-align: center;
+    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    font-weight: 500;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+  }
+  .readout {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a8a8a;
+  }
+  .content { max-width: 680px; margin: 0 auto; padding: 48px 16px 64px; }
+  .content p { color: #a8a8a8; }
+  .content a, .credit a { color: #e6e6e6; }
+  .credit {
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 24px 16px 40px;
+    font-size: 0.85rem;
+    color: #8a8a8a;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<section class="stage">
+  <h1>Malvern Hills</h1>
+
+  <!-- 2. The component: one element wherever the view should appear. -->
+  <div class="mr-ridges" data-src="malvern-ridges/data/"></div>
+
+  <div class="readout" aria-live="off">
+    <span id="facing">Facing</span>
+    <span>Drag to turn</span>
+  </div>
+</section>
+
+<main class="content">
+  <p>
+    Each line is a real elevation profile from the Environment Agency's 1 m
+    LIDAR terrain model, crossing the ridge at 45 degrees to the line through
+    its summits. The lines are 200 m apart and sampled every 20 m within a
+    circle 14.8 km across, centred on the midpoint of the summit line, between Worcestershire Beacon and
+    Herefordshire Beacon. Heights are exaggerated six times and flatten
+    towards the rim of the circle.
+  </p>
+  <p><a href="./">Back to the layered parallax view</a></p>
+</main>
+
+<footer class="credit">
+  Contains Environment Agency LIDAR Composite DTM data. © Environment Agency
+  copyright and/or database right 2022. All rights reserved. Used under the
+  <a href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/">Open Government Licence v3.0</a>.
+</footer>
+
+<!-- Demo only: show which way the view is facing. -->
+<script>
+  const POINTS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+  const facing = document.getElementById('facing');
+  document.addEventListener('mr:view', e => {
+    const b = e.detail.bearing;
+    facing.textContent = `Facing ${POINTS[Math.round(b / 45) % 8]} (${Math.round(b)}°)`;
+  });
+</script>
+
+<!-- 3. Component script -->
+<script src="malvern-ridges/malvern-ridges.js" defer></script>
+</body>
+</html>
