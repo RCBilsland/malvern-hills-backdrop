@@ -591,7 +591,7 @@
     });
     el.addEventListener('pointermove', e => {
       if (!dragging) return;
-      bearing -= (e.clientX - px) * 0.3;
+      bearing += (e.clientX - px) * 0.3;     // the surface follows the pointer, like turning a disc by hand
       elevation = Math.min(70, Math.max(3, elevation + (e.clientY - py) * 0.2));
       px = e.clientX; py = e.clientY;
       kick();
