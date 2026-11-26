@@ -19,6 +19,12 @@
  *   data-line-width    line width in CSS pixels (default 1.6)
  *   data-edge-fade     share of the radius over which heights flatten towards
  *                      the rim (default 0.12; 0 = true heights to the edge)
+ *   data-marker        "latitude,longitude" in decimal degrees (WGS84, as GPS
+ *                      and web maps give them; west is negative). A floating
+ *                      arrow points at that spot. Separate several with ";".
+ *   data-marker-label  text shown above the arrow (several: separate with ";")
+ *   data-marker-image  URL of an image (a logo, say) shown above the arrow in
+ *                      place of the text, which then becomes its alt text
  *
  * The view does not turn by itself if the visitor asks for reduced motion, and
  * it pauses while off screen. Each element fires a bubbling "mr:ready" event
@@ -61,6 +67,60 @@
     return new Uint16Array(bytes.buffer);      // little-endian on every platform browsers run on
   }
 
+  // WGS84 latitude/longitude to British National Grid easting/northing: a
+  // Helmert shift to OSGB36, then the National Grid transverse Mercator
+  // projection. Formulas from Ordnance Survey, "A guide to coordinate systems
+  // in Great Britain" (accurate to a few metres without the OSTN15 grid).
+  function toNationalGrid(latDeg, lonDeg) {
+    const rad = Math.PI / 180;
+    // WGS84 (GRS80) geodetic to cartesian.
+    let a = 6378137, b = 6356752.3141, e2 = 1 - (b * b) / (a * a);
+    let phi = latDeg * rad, lam = lonDeg * rad;
+    let nu = a / Math.sqrt(1 - e2 * Math.sin(phi) ** 2);
+    const x1 = nu * Math.cos(phi) * Math.cos(lam);
+    const y1 = nu * Math.cos(phi) * Math.sin(lam);
+    const z1 = nu * (1 - e2) * Math.sin(phi);
+    // Helmert transformation WGS84 to OSGB36.
+    const tx = -446.448, ty = 125.157, tz = -542.06, s = 20.4894e-6;
+    const rx = -0.1502 / 3600 * rad, ry = -0.247 / 3600 * rad, rz = -0.8421 / 3600 * rad;
+    const x2 = tx + (1 + s) * x1 - rz * y1 + ry * z1;
+    const y2 = ty + rz * x1 + (1 + s) * y1 - rx * z1;
+    const z2 = tz - ry * x1 + rx * y1 + (1 + s) * z1;
+    // Cartesian to geodetic on the Airy 1830 ellipsoid.
+    a = 6377563.396; b = 6356256.909; e2 = 1 - (b * b) / (a * a);
+    const p = Math.hypot(x2, y2);
+    phi = Math.atan2(z2, p * (1 - e2));
+    for (let i = 0; i < 10; i++) {
+      nu = a / Math.sqrt(1 - e2 * Math.sin(phi) ** 2);
+      phi = Math.atan2(z2 + e2 * nu * Math.sin(phi), p);
+    }
+    lam = Math.atan2(y2, x2);
+    // Transverse Mercator, National Grid parameters.
+    const F0 = 0.9996012717, phi0 = 49 * rad, lam0 = -2 * rad, N0 = -100000, E0 = 400000;
+    const n = (a - b) / (a + b);
+    const sin = Math.sin(phi), cos = Math.cos(phi), tan = Math.tan(phi);
+    nu = a * F0 / Math.sqrt(1 - e2 * sin * sin);
+    const rho = a * F0 * (1 - e2) / Math.pow(1 - e2 * sin * sin, 1.5);
+    const eta2 = nu / rho - 1;
+    const dp = phi - phi0, sp = phi + phi0;
+    const M = b * F0 * ((1 + n + 1.25 * n * n + 1.25 * n ** 3) * dp
+      - (3 * n + 3 * n * n + 2.625 * n ** 3) * Math.sin(dp) * Math.cos(sp)
+      + (1.875 * n * n + 1.875 * n ** 3) * Math.sin(2 * dp) * Math.cos(2 * sp)
+      - (35 / 24) * n ** 3 * Math.sin(3 * dp) * Math.cos(3 * sp));
+    const I = M + N0;
+    const II = nu / 2 * sin * cos;
+    const III = nu / 24 * sin * cos ** 3 * (5 - tan * tan + 9 * eta2);
+    const IIIA = nu / 720 * sin * cos ** 5 * (61 - 58 * tan * tan + tan ** 4);
+    const IV = nu * cos;
+    const V = nu / 6 * cos ** 3 * (nu / rho - tan * tan);
+    const VI = nu / 120 * cos ** 5 * (5 - 18 * tan * tan + tan ** 4 + 14 * eta2 - 58 * tan * tan * eta2);
+    const dl = lam - lam0;
+    return {
+      easting: E0 + IV * dl + V * dl ** 3 + VI * dl ** 5,
+      northing: I + II * dl * dl + III * dl ** 4 + IIIA * dl ** 6,
+    };
+  }
+
   function cssColour(el, prop, fallback) {
     const probe = document.createElement('span');
     probe.style.color = getComputedStyle(el).getPropertyValue(prop).trim() || fallback;
@@ -80,6 +140,15 @@
     const ue = Math.sin(b), un = Math.cos(b), ve = Math.cos(b), vn = -Math.sin(b);
     const base = d.min_m;
 
+    const lift = (metres, u, v) => {
+      let f = 1;
+      if (edgeFade > 0) {
+        const t = Math.min(1, Math.max(0, (1 - Math.hypot(u, v) / R) / edgeFade));
+        f = t * t * (3 - 2 * t);
+      }
+      return (metres - base) * exaggeration * f / 1000;
+    };
+
     const pos = new Float32Array(lines * samples * 3);
     const ok = new Uint8Array(lines * samples);
     for (let i = 0; i < lines; i++) {
@@ -89,15 +158,9 @@
         if (h[k] === NODATA) continue;
         ok[k] = 1;
         const u = -R + j * st;
-        const r = Math.hypot(u, v) / R;
-        let f = 1;
-        if (edgeFade > 0) {
-          const t = Math.min(1, Math.max(0, (1 - r) / edgeFade));
-          f = t * t * (3 - 2 * t);
-        }
         const e = u * ue + v * ve, n = u * un + v * vn;
         pos[k * 3] = e / 1000;
-        pos[k * 3 + 1] = (h[k] / 10 - base) * exaggeration * f / 1000;
+        pos[k * 3 + 1] = lift(h[k] / 10, u, v);
         pos[k * 3 + 2] = -n / 1000;
       }
     }
@@ -145,7 +208,29 @@
 
     let top = 0;
     for (let k = 0; k < ok.length; k++) if (ok[k]) top = Math.max(top, pos[k * 3 + 1]);
+    // Ground position (world units) of a National Grid point, interpolated
+    // between the nearest samples on the two nearest lines; null outside.
+    function groundAt(E, N) {
+      const de = E - d.centre.easting, dn = N - d.centre.northing;
+      const u = de * ue + dn * un, v = de * ve + dn * vn;
+      if (Math.hypot(u, v) > R) return null;
+      const fi = (v + R) / sp, fj = (u + R) / st;
+      const i0 = Math.floor(fi), j0 = Math.floor(fj);
+      let sum = 0, wsum = 0;
+      for (const [i, wi] of [[i0, 1 - (fi - i0)], [i0 + 1, fi - i0]]) {
+        for (const [j, wj] of [[j0, 1 - (fj - j0)], [j0 + 1, fj - j0]]) {
+          if (i < 0 || j < 0 || i >= lines || j >= samples) continue;
+          const k = i * samples + j;
+          if (h[k] === NODATA || wi * wj === 0) continue;
+          sum += h[k] / 10 * wi * wj; wsum += wi * wj;
+        }
+      }
+      if (!wsum) return null;
+      return [de / 1000, lift(sum / wsum, u, v), -dn / 1000];
+    }
+
     return {
+      groundAt,
       surf: { pos, idx: new Uint32Array(tri) },
       line: { vert: new Float32Array(lv), idx: new Uint32Array(li) },
       radius: R / 1000,
@@ -166,7 +251,8 @@
     uniform mat4 uMVP;
     uniform vec2 uHalf;      // half the canvas size in device pixels
     uniform float uWidth;    // line width in device pixels
-    in vec3 aPos; in vec3 aPrev; in vec3 aNext; in float aSide;
+    in vec3 aPos; in vec3 aPrev; in vec3 aNext; in float aSide; in float aMix;
+    out float vMix;
     vec2 screen(vec4 c) { return c.xy / c.w * uHalf; }
     void main() {
       vec4 c = uMVP * vec4(aPos, 1.0);
@@ -181,8 +267,15 @@
       float miter = 1.0 / max(dot(n, vec2(-a.y, a.x)), 0.4);
       c.xy += n * aSide * uWidth * 0.5 * miter / uHalf * c.w;
       gl_Position = c;
+      vMix = aMix;
     }`;
-  const LINE_FS = SURF_FS;
+  const LINE_FS = `#version 300 es
+    precision mediump float;
+    uniform vec3 uColour;
+    uniform vec3 uColourTop;
+    in float vMix;
+    out vec4 o;
+    void main() { o = vec4(mix(uColour, uColourTop, vMix), 1.0); }`;
 
   function program(gl, vs, fs) {
     const p = gl.createProgram();
@@ -285,11 +378,76 @@
     buffer(gl, gl.ELEMENT_ARRAY_BUFFER, geo.line.idx);
     gl.bindVertexArray(null);
 
+    // Markers: an arrow (HTML, so it stays crisp and styleable) floating above
+    // each point, joined to the ground by a stem drawn in the scene, so the
+    // part of the stem behind a hill is hidden like the lines are.
+    const markerColour = cssColour(el, '--mr-marker', '#ff5a36');
+    const markerTop = cssColour(el, '--mr-marker-top', getComputedStyle(el).getPropertyValue('--mr-marker').trim() || '#ff5a36');
+    const labels = (el.dataset.markerLabel || '').split(';').map(t => t.trim());
+    const images = (el.dataset.markerImage || '').split(';').map(t => t.trim());
+    const stemH = geo.top * 0.55;
+    const markers = [];
+    (el.dataset.marker || '').split(';').map(t => t.trim()).filter(Boolean).forEach((text, n) => {
+      const [lat, lon] = text.split(',').map(Number);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        console.warn('[malvern-ridges] could not read marker', text); return;
+      }
+      const { easting, northing } = toNationalGrid(lat, lon);
+      const ground = geo.groundAt(easting, northing);
+      if (!ground) {
+        console.warn('[malvern-ridges] marker is outside the mapped circle', text); return;
+      }
+      const tip = [ground[0], ground[1] + stemH, ground[2]];
+      const m = document.createElement('div');
+      m.className = 'mr-marker';
+      const gid = 'mr-grad-' + Math.random().toString(36).slice(2);
+      m.innerHTML = '<div class="mr-marker-float">'
+        + (images[n] ? '<img class="mr-marker-image" decoding="async">'
+          : labels[n] ? '<span class="mr-marker-label"></span>' : '')
+        + '<svg viewBox="0 0 20 26" width="20" height="26" aria-hidden="true">'
+        + `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">`
+        + '<stop offset="0" stop-color="var(--mr-marker-top, currentColor)"/>'
+        + '<stop offset="1" stop-color="currentColor"/></linearGradient></defs>'
+        + `<path d="M10 26 L0 12 H6 V0 H14 V12 H20 Z" fill="url(#${gid})"/></svg></div>`;
+      if (images[n]) {
+        const img = m.querySelector('img');
+        img.src = images[n];
+        img.alt = labels[n] || '';
+      } else if (labels[n]) {
+        m.querySelector('.mr-marker-label').textContent = labels[n];
+      }
+      el.appendChild(m);
+      markers.push({ el: m, ground, tip, lat, lon, easting, northing });
+    });
+    let stemVao = null, stemCount = 0;
+    if (markers.length) {
+      const v = [], ix = [];
+      markers.forEach(({ ground: g, tip: t }, n) => {
+        for (const [p, q, r] of [[g, g, t], [t, g, t]]) {
+          for (const side of [-1, 1]) v.push(...p, ...q, ...r, side, p === t ? 1 : 0);
+        }
+        const o = n * 4;
+        ix.push(o, o + 1, o + 2, o + 1, o + 3, o + 2);
+      });
+      stemVao = gl.createVertexArray();
+      gl.bindVertexArray(stemVao);
+      buffer(gl, gl.ARRAY_BUFFER, new Float32Array(v));
+      [['aPos', 3, 0], ['aPrev', 3, 12], ['aNext', 3, 24], ['aSide', 1, 36], ['aMix', 1, 40]].forEach(([name, size, off]) => {
+        const loc = gl.getAttribLocation(lineProg, name);
+        gl.enableVertexAttribArray(loc);
+        gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride + 4, off);
+      });
+      buffer(gl, gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(ix));
+      gl.bindVertexArray(null);
+      stemCount = ix.length;
+    }
+
     const U = {
       surfMVP: gl.getUniformLocation(surfProg, 'uMVP'),
       surfColour: gl.getUniformLocation(surfProg, 'uColour'),
       lineMVP: gl.getUniformLocation(lineProg, 'uMVP'),
       lineColour: gl.getUniformLocation(lineProg, 'uColour'),
+      lineColourTop: gl.getUniformLocation(lineProg, 'uColourTop'),
       half: gl.getUniformLocation(lineProg, 'uHalf'),
       width: gl.getUniformLocation(lineProg, 'uWidth'),
     };
@@ -338,11 +496,32 @@
       gl.useProgram(lineProg);
       gl.uniformMatrix4fv(U.lineMVP, false, mvp);
       gl.uniform3fv(U.lineColour, fg);
+      gl.uniform3fv(U.lineColourTop, fg);
       gl.uniform2f(U.half, W / 2, H / 2);
       gl.uniform1f(U.width, lineWidth * dpr);
       gl.bindVertexArray(lineVao);
       gl.drawElements(gl.TRIANGLES, geo.line.idx.length, gl.UNSIGNED_INT, 0);
+      if (stemVao) {
+        gl.uniform3fv(U.lineColour, markerColour);
+        gl.uniform3fv(U.lineColourTop, markerTop);
+        gl.bindVertexArray(stemVao);
+        gl.drawElements(gl.TRIANGLES, stemCount, gl.UNSIGNED_INT, 0);
+      }
       gl.bindVertexArray(null);
+
+      // Place each arrow at the projected top of its stem.
+      const cw = el.clientWidth, ch = el.clientHeight;
+      for (const m of markers) {
+        const [x, y, z] = m.tip;
+        const cx = mvp[0] * x + mvp[4] * y + mvp[8] * z + mvp[12];
+        const cy = mvp[1] * x + mvp[5] * y + mvp[9] * z + mvp[13];
+        const w = mvp[3] * x + mvp[7] * y + mvp[11] * z + mvp[15];
+        m.el.hidden = w <= 0;
+        if (w > 0) {
+          m.el.style.transform =
+            `translate(${((cx / w + 1) / 2 * cw).toFixed(1)}px, ${((1 - cy / w) / 2 * ch).toFixed(1)}px)`;
+        }
+      }
 
       el.dispatchEvent(new CustomEvent('mr:view', { bubbles: true,
         detail: { bearing: ((bearing % 360) + 360) % 360, elevation },
@@ -393,6 +572,7 @@
 
     Object.defineProperties(inst, {
       data: { value: data },
+      markers: { value: markers.map(({ lat, lon, easting, northing }) => ({ lat, lon, easting, northing })) },
       bearing: { get: () => bearing },
       elevation: { get: () => elevation },
       redraw: { value: kick },

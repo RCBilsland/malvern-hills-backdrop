@@ -210,8 +210,22 @@ To use it in another page, copy `malvern-ridges/` and add:
 | `data-bearing` | `275` | Direction the view faces at the start (west, across the ridge). |
 | `data-line-width` | `1.6` | Line width in CSS pixels. |
 | `data-edge-fade` | `0.12` | Share of the radius over which heights flatten towards the rim. `0` keeps true heights to the edge. This is an artistic adjustment. |
+| `data-marker` | none | `latitude,longitude` in decimal degrees (WGS84, as GPS and web maps give them; west is negative). A floating arrow points at that spot. Separate several with `;`. |
+| `data-marker-label` | none | Text shown above each arrow, separated with `;` to match the markers. |
+| `data-marker-image` | none | URL of an image (a logo, say) shown above each arrow in place of the text, which then becomes its alt text. Separate several with `;`. Its width is `--mr-marker-image-w` (default `clamp(120px, 18vw, 220px)`), and a dark halo keeps it clear of the lines. |
 
-CSS properties `--mr-bg`, `--mr-line` and `--mr-ratio` (default `16 / 10`) set
+The marker's position is converted to British National Grid in the browser,
+using the Helmert transformation and projection in Ordnance Survey's
+[A guide to coordinate systems in Great Britain](https://www.ordnancesurvey.co.uk/documents/resources/guide-coordinate-systems-great-britain.pdf),
+which is accurate to a few metres. The demo marks 52.1266° N, 2.3376° W
+(E 376985 N 247642), at the northern foot of the hills, with the Coco Software
+logo (loaded from cocosoftware.io) and an arrow in the logo's blue-to-green
+gradient. A thin stem joins each
+arrow to the ground and is hidden where a hill stands in front of it. A marker
+outside the mapped circle is skipped with a console warning. The instance
+lists the converted positions in `element.mrInstance.markers`.
+
+CSS properties `--mr-bg`, `--mr-line`, `--mr-marker` (default `#ff5a36`), `--mr-marker-top` (top of the arrow and stem gradient) and `--mr-ratio` (default `16 / 10`) set
 the colours and proportions. It needs WebGL 2, does not turn by itself when
 reduced motion is requested, and pauses while off screen. Events: `mr:ready`
 (data in `event.detail.data`) and `mr:view` (`{ bearing, elevation }`). The
