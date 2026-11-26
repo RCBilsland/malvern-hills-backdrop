@@ -26,6 +26,13 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 python3 -m http.server 8765                      # then open http://127.0.0.1:8765/
 ```
 
+After changing anything in `malvern-hills/` or `malvern-ridges/`, run
+`python3 scripts/stamp_assets.py` before committing. It adds a hash of each file
+to its link in the demo pages (`?v=...`), so browsers fetch the new file rather
+than reusing a cached copy alongside the new page. GitHub Pages lets browsers
+cache files for 10 minutes, and mobile Safari in particular will otherwise mix
+old and new files.
+
 `index.html` is a demo page built on the component below. It also works opened
 directly from disk.
 
