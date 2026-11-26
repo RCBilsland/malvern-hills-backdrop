@@ -220,9 +220,10 @@ using the Helmert transformation and projection in Ordnance Survey's
 which is accurate to a few metres. The demo marks 52.1266° N, 2.3376° W
 (E 376985 N 247642), at the northern foot of the hills, with the Coco Software
 logo (a local copy in `assets/`, from cocosoftware.io) and an arrow in the logo's blue-to-green
-gradient. The demo starts facing a bearing of 80° (`data-bearing="80"`),
-which puts the marker on the left, so the orbit then carries it round in front
-of the viewer, nearest at about 185°. A thin stem joins each
+gradient. The demo starts facing a bearing of 140° (`data-bearing="140"`),
+which puts the marker in front of the hills and to the left, far enough in to
+keep the logo on screen on a phone. The orbit carries it round in front of the
+viewer (nearest at about 185°) and it stays on the near side until about 275°. A thin stem joins each
 arrow to the ground and is hidden where a hill stands in front of it. A marker
 outside the mapped circle is skipped with a console warning. The instance
 lists the converted positions in `element.mrInstance.markers`.
