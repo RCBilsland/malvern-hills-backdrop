@@ -219,7 +219,7 @@ using the Helmert transformation and projection in Ordnance Survey's
 [A guide to coordinate systems in Great Britain](https://www.ordnancesurvey.co.uk/documents/resources/guide-coordinate-systems-great-britain.pdf),
 which is accurate to a few metres. The demo marks 52.1266° N, 2.3376° W
 (E 376985 N 247642), at the northern foot of the hills, with the Coco Software
-logo (loaded from cocosoftware.io) and an arrow in the logo's blue-to-green
+logo (a local copy in `assets/`, from cocosoftware.io) and an arrow in the logo's blue-to-green
 gradient. A thin stem joins each
 arrow to the ground and is hidden where a hill stands in front of it. A marker
 outside the mapped circle is skipped with a console warning. The instance
