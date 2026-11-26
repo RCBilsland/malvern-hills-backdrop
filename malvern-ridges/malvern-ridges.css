@@ -12,6 +12,9 @@
  *   --mr-marker   colour of the marker arrow's tip and the foot of its stem
  *   --mr-marker-top  colour at the top of the arrow and stem (a gradient;
  *                 defaults to --mr-marker)
+ *   --mr-marker-plate  colour of the soft plate behind a marker image
+ *                 (default: the background colour)
+ *   --mr-marker-plate-opacity  how solid that plate is (default 70%)
  *   --mr-ratio    width / height of the view (the element can also be given
  *                 an explicit height instead)
  */
@@ -20,6 +23,8 @@
   --mr-bg: #000;
   --mr-line: #f2f2f2;
   --mr-marker: #ff5a36;
+  --mr-marker-plate: var(--mr-bg);
+  --mr-marker-plate-opacity: 70%;
   --mr-ratio: 16 / 10;
 
   position: relative;
@@ -78,8 +83,13 @@
   width: var(--mr-marker-image-w, clamp(120px, 18vw, 220px));
   height: auto;
   margin-bottom: 4px;
-  /* A dark halo keeps the image clear of the white lines behind it. */
-  filter: brightness(1.12) drop-shadow(0 0 3px #000) drop-shadow(0 0 10px rgba(0, 0, 0, 0.85));
+  /* A soft, partly see-through plate in the background colour keeps the image clear of the lines
+     behind it, even when the marker passes in front of the far hills. */
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mr-marker-plate) var(--mr-marker-plate-opacity), transparent);
+  box-shadow: 0 0 14px 8px color-mix(in srgb, var(--mr-marker-plate) var(--mr-marker-plate-opacity), transparent);
+  filter: brightness(1.12);
 }
 .mr-marker-label {
   white-space: nowrap;

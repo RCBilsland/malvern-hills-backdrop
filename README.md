@@ -206,13 +206,13 @@ To use it in another page, copy `malvern-ridges/` and add:
 | --- | --- | --- |
 | `data-exaggeration` | `3` | Vertical exaggeration, the same as the layered view. |
 | `data-speed` | `4` | Orbit speed in degrees per second. `0` keeps it still. |
-| `data-elevation` | `8` | Camera height above the horizon, degrees. |
+| `data-elevation` | `12` | Camera height above the horizon, degrees. |
 | `data-bearing` | `275` | Direction the view faces at the start (west, across the ridge). |
 | `data-line-width` | `1.6` | Line width in CSS pixels. |
 | `data-edge-fade` | `0.12` | Share of the radius over which heights flatten towards the rim. `0` keeps true heights to the edge. This is an artistic adjustment. |
 | `data-marker` | none | `latitude,longitude` in decimal degrees (WGS84, as GPS and web maps give them; west is negative). A floating arrow points at that spot. Separate several with `;`. |
 | `data-marker-label` | none | Text shown above each arrow, separated with `;` to match the markers. |
-| `data-marker-image` | none | URL of an image (a logo, say) shown above each arrow in place of the text, which then becomes its alt text. Separate several with `;`. Its width is `--mr-marker-image-w` (default `clamp(120px, 18vw, 220px)`), and a dark halo keeps it clear of the lines. |
+| `data-marker-image` | none | URL of an image (a logo, say) shown above each arrow in place of the text, which then becomes its alt text. Separate several with `;`. Its width is `--mr-marker-image-w` (default `clamp(120px, 18vw, 220px)`), and a soft plate behind it (`--mr-marker-plate`, the background colour by default, at `--mr-marker-plate-opacity`, default `70%`) keeps it clear of the lines. |
 
 The marker's position is converted to British National Grid in the browser,
 using the Helmert transformation and projection in Ordnance Survey's

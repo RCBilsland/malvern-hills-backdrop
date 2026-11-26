@@ -14,7 +14,7 @@
  *   data-src           folder holding ridges.json / ridges.js (default "malvern-ridges/data/")
  *   data-exaggeration  vertical exaggeration (default 3, as the layered view)
  *   data-speed         orbit speed in degrees per second (default 4; 0 = still)
- *   data-elevation     camera height above the horizon in degrees (default 8)
+ *   data-elevation     camera height above the horizon in degrees (default 12)
  *   data-bearing       direction the view starts facing, degrees (default 275, west across the ridge)
  *   data-line-width    line width in CSS pixels (default 1.6)
  *   data-edge-fade     share of the radius over which heights flatten towards
@@ -330,7 +330,7 @@
     const speed = num(el, 'speed', 4);
     const lineWidth = num(el, 'lineWidth', 1.6);
     const edgeFade = num(el, 'edgeFade', 0.12);
-    let elevation = num(el, 'elevation', 8);
+    let elevation = num(el, 'elevation', 12);
     let bearing = num(el, 'bearing', 275);       // direction the view faces
 
     const canvas = document.createElement('canvas');
@@ -385,7 +385,8 @@
     const markerTop = cssColour(el, '--mr-marker-top', getComputedStyle(el).getPropertyValue('--mr-marker').trim() || '#ff5a36');
     const labels = (el.dataset.markerLabel || '').split(';').map(t => t.trim());
     const images = (el.dataset.markerImage || '').split(';').map(t => t.trim());
-    const stemH = geo.top * 0.55;
+    // Tall enough to lift the arrow clear of the hills at any exaggeration.
+    const stemH = Math.max(geo.top * 0.55, geo.radius * 0.17);
     const markers = [];
     (el.dataset.marker || '').split(';').map(t => t.trim()).filter(Boolean).forEach((text, n) => {
       const [lat, lon] = text.split(',').map(Number);
